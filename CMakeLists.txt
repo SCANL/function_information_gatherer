@@ -1,0 +1,49 @@
+##
+#  CMakeLists.txt
+#
+#  Copyright (C) 2021 SCANL (www.scanl.org)
+#
+#  This file is part of the function_information_gatherer.
+#
+#  The function_information_gatherer is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  The function_information_gatherer is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with the function_information_gatherer; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+cmake_minimum_required(VERSION 2.8)
+project(expansion_finder)
+
+
+# find needed libraries
+find_package(LibXml2 REQUIRED)
+
+
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+set(CMAKE_CXX_FLAGS "-g -std=c++1y -O0")
+
+# set output directory for binaries and libraries
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# include needed includes
+include_directories(/usr/local/include 
+					${LIBXML2_INCLUDE_DIR}
+					${CMAKE_CURRENT_SOURCE_DIR}/srcSAXEventDispatch/srcSAX/src/srcsax
+					${CMAKE_CURRENT_SOURCE_DIR}/srcSAXEventDispatch/srcSAX/src/cpp
+					${CMAKE_CURRENT_SOURCE_DIR}/srcSAXEventDispatch/srcSAX/src/windows
+                    ${CMAKE_CURRENT_SOURCE_DIR}/srcSAXEventDispatch/src/dispatcher
+                    ${CMAKE_CURRENT_SOURCE_DIR}/srcSAXEventDispatch/src/policy_classes
+					src)
+
+add_subdirectory(srcSAXEventDispatch/CMake)
+add_subdirectory(src)
