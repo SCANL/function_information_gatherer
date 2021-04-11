@@ -29,6 +29,7 @@
 #include <cctype>
 #include <list>
 #include <map>
+#include <set>
 #include <fstream>
 #include <algorithm>
 #include <cmath>
@@ -36,7 +37,7 @@
 #include <FunctionSignaturePolicy.hpp>
 #include <DeclTypePolicy.hpp>
 #include <ParamTypePolicy.hpp>
-
+#include <FunctionTextPolicy.hpp>
 using std::regex;
 using std::regex_replace;
 
@@ -56,33 +57,62 @@ std::string ConservativeSplit(std::string rawString){
   return processedString;
 }
 
+class FunctionMetadata{
+  public:
+    std::string name;
+    std::string splitName;
+    std::string returnType;
+    std::vector<DeclData> parameters;
+    std::vector<DeclData> declarations;
+    int lineCount;
+    void clear(){
+        name = "";
+        returnType = "";
+        parameters.clear();
+        declarations.clear();
+        lineCount = 1;
+    }
+    friend std::ostream& operator<<(std::ostream& os, const FunctionMetadata& fm){
+        os << fm.name << "," << fm.splitName << "," << fm.returnType << "," << fm.parameters.size() << "," << fm.declarations.size() << "," << fm.lineCount <<std::endl;
+        return os;
+    }
+};
 class GatherFunctionInformationPolicy : public srcSAXEventDispatch::EventListener, public srcSAXEventDispatch::PolicyDispatcher, public srcSAXEventDispatch::PolicyListener {
     public:
         ~GatherFunctionInformationPolicy(){}
         GatherFunctionInformationPolicy(): srcSAXEventDispatch::PolicyDispatcher({}){
             InitializeEventHandlers();
             declPolicy.AddListener(this);
-            paramPolicy.AddListener(this);
-            //function_text_policy.AddListener(this);
+            functionPolicy.AddListener(this);
+            function_text_policy.AddListener(this);
+            
         }
         void Notify(const PolicyDispatcher * policy, const srcSAXEventDispatch::srcSAXEventContext & ctx) override {
             using namespace srcSAXEventDispatch;
             if((typeid(DeclTypePolicy) == typeid(*policy)) && ctx.IsOpen(ParserState::function)){
                 decldata = *policy->Data<DeclData>();
-            }else if((typeid(ParamTypePolicy) == typeid(*policy)) && ctx.IsOpen(ParserState::function)){
-                paramdata = *policy->Data<DeclData>();
+                metadata.declarations.push_back(decldata);
+            }else if((typeid(FunctionSignaturePolicy) == typeid(*policy)) && ctx.IsOpen(ParserState::function)){
+                functiondata = *policy->Data<SignatureData>();
+                metadata.parameters = functiondata.parameters;
+                metadata.name = functiondata.name;
+                metadata.returnType = functiondata.returnType;
+                metadata.splitName = ConservativeSplit(functiondata.name);
             }
-            // else if(typeid(FunctionTextPolicy) == typeid(*policy)){
-            //     functiontextdata = *policy->Data<FunctionText>();
-            // }
+            else if(typeid(FunctionTextPolicy) == typeid(*policy)){
+                functiontextdata = *policy->Data<FunctionText>();
+                metadata.lineCount = functiontextdata.lineCount;
+            }
             
         }
         void NotifyWrite(const PolicyDispatcher * policy, srcSAXEventDispatch::srcSAXEventContext & ctx) override {} //doesn't write
     protected:
         void * DataInner() const override {}
     private:
-        // FunctionTextPolicy function_text_policy;
-        // FunctionText functiontextdata;
+        FunctionMetadata metadata;
+
+        FunctionTextPolicy function_text_policy;
+        FunctionText functiontextdata;
 
         FunctionSignaturePolicy functionPolicy;
         SignatureData functiondata;
@@ -96,23 +126,25 @@ class GatherFunctionInformationPolicy : public srcSAXEventDispatch::EventListene
             using namespace srcSAXEventDispatch;
             closeEventMap[ParserState::tokenstring] = [this](srcSAXEventContext& ctx){};
             openEventMap[ParserState::function] = [this](srcSAXEventContext& ctx) {
-                //ctx.dispatcher->AddListenerDispatch(&functionPolicy);
-                //ctx.dispatcher->AddListenerDispatch(&function_text_policy);
+                ctx.dispatcher->AddListenerDispatch(&functionPolicy);
+                ctx.dispatcher->AddListenerDispatch(&function_text_policy);
             };
-            // openEventMap[ParserState::functionblock] = [this](srcSAXEventContext& ctx) {
-            //     //ctx.dispatcher->RemoveListenerDispatch(&functionPolicy);
-            // };
+            openEventMap[ParserState::functionblock] = [this](srcSAXEventContext& ctx) {
+                ctx.dispatcher->RemoveListenerDispatch(&functionPolicy);
+            };
             openEventMap[ParserState::parameterlist] = [this](srcSAXEventContext& ctx) {
-                ctx.dispatcher->AddListenerDispatch(&paramPolicy);
+                //ctx.dispatcher->AddListenerDispatch(&paramPolicy);
             };
             closeEventMap[ParserState::parameterlist] = [this](srcSAXEventContext& ctx) {
-                ctx.dispatcher->RemoveListenerDispatch(&paramPolicy);
+                //ctx.dispatcher->RemoveListenerDispatch(&paramPolicy);
             };
             openEventMap[ParserState::declstmt] = [this](srcSAXEventContext& ctx) {
                 ctx.dispatcher->AddListenerDispatch(&declPolicy);
             };
             closeEventMap[ParserState::function] = [this](srcSAXEventContext& ctx){
-                //ctx.dispatcher->RemoveListenerDispatch(&function_text_policy);
+                std::cout<<metadata<<std::endl;
+                metadata.clear();
+                ctx.dispatcher->RemoveListenerDispatch(&function_text_policy);
             };
             closeEventMap[ParserState::declstmt] = [this](srcSAXEventContext& ctx) {
                 ctx.dispatcher->RemoveListenerDispatch(&declPolicy);
